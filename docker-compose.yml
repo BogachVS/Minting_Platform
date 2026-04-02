@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: .
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - ConnectionStrings__PostgresqlContext=User ID=${DB_USERNAME}; Password=${DB_PASSWORD}; Host=pg_db; Port=5432; Database=${DB_NAME}; Pooling=true
+    depends_on:
+      - pg_db
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend-${COMPOSE_PROJECT_NAME}.entrypoints=websecure"
+      - "traefik.http.routers.backend-${COMPOSE_PROJECT_NAME}.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend-${COMPOSE_PROJECT_NAME}.tls.certresolver=le"
+      - "traefik.http.routers.backend-${COMPOSE_PROJECT_NAME}.tls=true"
+      - "traefik.http.routers.backend-${COMPOSE_PROJECT_NAME}.service=backend-${COMPOSE_PROJECT_NAME}-service"
+      - "traefik.http.services.backend-${COMPOSE_PROJECT_NAME}-service.loadbalancer.server.port=8080"
+    volumes:
+      - public:/app/wwwroot
+    networks:
+      - traefik
+      - postgres
+
+  pg_db:
+    image: postgres:13
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - postgres
+
+volumes:
+  public:
+  pgdata:
+
+networks:
+  traefik:
+    name: traefik
+    external: true
+  postgres:
