@@ -1,0 +1,43 @@
+name: PRODUCTION - Build and deploy piggyhodl's game backend
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build and deploy app
+    runs-on: [self-hosted, piggygame, production]
+    env: 
+      ENV_FILE: .env.production
+      PRODUCTION_DB_NAME: ${{ secrets.PRODUCTION_DB_NAME }}
+      PRODUCTION_DB_USER: ${{ secrets.PRODUCTION_DB_USER }}
+      PRODUCTION_DB_PASSWORD: ${{ secrets.PRODUCTION_DB_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Prepare production envs
+        run: |
+          rm -f $ENV_FILE
+          touch $ENV_FILE
+          echo ASPNETCORE_ENVIRONMENT=Production >> $ENV_FILE
+          echo COMPOSE_PROJECT_NAME=production-piggygame >> $ENV_FILE
+          echo DOMAIN=game.piggyhodl.xyz >> $ENV_FILE
+          echo DB_USERNAME=$PRODUCTION_DB_USER >> $ENV_FILE
+          echo DB_NAME=$PRODUCTION_DB_NAME >> $ENV_FILE
+          echo DB_PASSWORD=$PRODUCTION_DB_PASSWORD >> $ENV_FILE
+      - name: Start docker compose
+        run: |
+          docker compose --env-file $ENV_FILE up -d --build
+  cleanup:
+    name: Cleanup docker build
+    runs-on: [self-hosted, piggygame, production]
+    needs: [deploy]
+    if: always()
+    steps:
+      - name: Prune old images
+        run: |
+          docker system prune -a -f
